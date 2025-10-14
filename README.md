@@ -1,17 +1,17 @@
-# pipeline-step
+# steputil
 
 Utilities to simplify creation of pipeline steps.
 
 ## Installation
 
 ```bash
-pip install pipeline-step
+pip install steputil
 ```
 
 ## Usage
 
 ```python
-import pipelinestep
+import steputil
 
 # Add usage examples here
 ```
