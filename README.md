@@ -1,17 +1,17 @@
-# Your Package Name
+# pipeline-step
 
-A short description of what your package does.
+Utilities to simplify creation of pipeline steps.
 
 ## Installation
 
 ```bash
-pip install your-package-name
+pip install pipeline-step
 ```
 
 ## Usage
 
 ```python
-import your_package_name
+import pipelinestep
 
 # Add usage examples here
 ```
@@ -22,8 +22,8 @@ import your_package_name
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/your-package-name.git
-cd your-package-name
+git clone https://github.com/k-pipe/step-util.git
+cd step-util
 ```
 
 2. Create a virtual environment and install dependencies:
@@ -59,7 +59,6 @@ To create a new release:
 1. Update the version in `pyproject.toml`
 2. Create a new git tag: `git tag v0.1.0`
 3. Push the tag: `git push origin v0.1.0`
-4. Create a release on GitHub with the same tag
 
 The GitHub Action will automatically build and publish the package to PyPI.
 
