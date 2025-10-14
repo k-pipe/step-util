@@ -1,4 +1,3 @@
-
 """Command-line argument parser with builder pattern for pipeline steps."""
 
 import argparse
@@ -29,7 +28,7 @@ class InputField:
             json.JSONDecodeError: If a line contains invalid JSON.
         """
         result = []
-        with open(self.path, 'r', encoding='utf-8') as f:
+        with open(self.path, "r", encoding="utf-8") as f:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
                 if line:  # Skip empty lines
@@ -37,9 +36,7 @@ class InputField:
                         result.append(json.loads(line))
                     except json.JSONDecodeError as e:
                         raise json.JSONDecodeError(
-                            f"Invalid JSON on line {line_num}: {e.msg}",
-                            e.doc,
-                            e.pos
+                            f"Invalid JSON on line {line_num}: {e.msg}", e.doc, e.pos
                         )
         return result
 
@@ -64,15 +61,17 @@ class OutputField:
         # Create parent directory if it doesn't exist
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
 
-        with open(self.path, 'w', encoding='utf-8') as f:
+        with open(self.path, "w", encoding="utf-8") as f:
             for obj in jsons:
-                f.write(json.dumps(obj, ensure_ascii=False) + '\n')
+                f.write(json.dumps(obj, ensure_ascii=False) + "\n")
 
 
 class StepArgs:
     """Container for parsed command-line arguments with input/output fields."""
 
-    def __init__(self, args_dict: Dict[str, str], input_names: List[str], output_names: List[str]):
+    def __init__(
+        self, args_dict: Dict[str, str], input_names: List[str], output_names: List[str]
+    ):
         """Initialize StepArgs with parsed arguments.
 
         Args:
@@ -97,7 +96,7 @@ class StepArgsBuilder:
         self._inputs: List[tuple[str, Optional[str]]] = []
         self._outputs: List[tuple[str, Optional[str]]] = []
 
-    def input(self, name: Optional[str] = None) -> 'StepArgsBuilder':
+    def input(self, name: Optional[str] = None) -> "StepArgsBuilder":
         """Add an input field to the argument parser.
 
         Args:
@@ -106,11 +105,11 @@ class StepArgsBuilder:
         Returns:
             Self for method chaining.
         """
-        field_name = name if name is not None else 'input'
+        field_name = name if name is not None else "input"
         self._inputs.append((field_name, name))
         return self
 
-    def output(self, name: Optional[str] = None) -> 'StepArgsBuilder':
+    def output(self, name: Optional[str] = None) -> "StepArgsBuilder":
         """Add an output field to the argument parser.
 
         Args:
@@ -119,7 +118,7 @@ class StepArgsBuilder:
         Returns:
             Self for method chaining.
         """
-        field_name = name if name is not None else 'output'
+        field_name = name if name is not None else "output"
         self._outputs.append((field_name, name))
         return self
 
@@ -130,7 +129,7 @@ class StepArgsBuilder:
             StepArgs object with parsed input/output fields.
         """
         parser = argparse.ArgumentParser(
-            description='Pipeline step with configurable inputs and outputs'
+            description="Pipeline step with configurable inputs and outputs"
         )
 
         # Add input arguments
@@ -140,7 +139,7 @@ class StepArgsBuilder:
                 arg_name,
                 type=str,
                 required=True,
-                help=f'Path to input file for {field_name}'
+                help=f"Path to input file for {field_name}",
             )
 
         # Add output arguments
@@ -150,7 +149,7 @@ class StepArgsBuilder:
                 arg_name,
                 type=str,
                 required=True,
-                help=f'Path to output file for {field_name}'
+                help=f"Path to output file for {field_name}",
             )
 
         # Parse arguments
@@ -158,7 +157,7 @@ class StepArgsBuilder:
         args_dict = vars(args)
 
         # Convert dashes back to underscores for field names
-        normalized_dict = {k.replace('-', '_'): v for k, v in args_dict.items()}
+        normalized_dict = {k.replace("-", "_"): v for k, v in args_dict.items()}
 
         input_names = [name for name, _ in self._inputs]
         output_names = [name for name, _ in self._outputs]

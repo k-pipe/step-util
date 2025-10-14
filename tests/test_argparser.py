@@ -12,7 +12,7 @@ from steputil import StepArgsBuilder, InputField, OutputField
 def test_input_field_read_jsonls():
     """Test reading JSONL file with InputField."""
     # Create a temporary JSONL file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
         temp_path = f.name
         f.write('{"id": 1, "name": "Alice"}\n')
         f.write('{"id": 2, "name": "Bob"}\n')
@@ -32,12 +32,12 @@ def test_input_field_read_jsonls():
 
 def test_input_field_read_jsonls_with_empty_lines():
     """Test reading JSONL file with empty lines."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
         temp_path = f.name
         f.write('{"id": 1}\n')
-        f.write('\n')
+        f.write("\n")
         f.write('{"id": 2}\n')
-        f.write('  \n')
+        f.write("  \n")
         f.write('{"id": 3}\n')
 
     try:
@@ -61,13 +61,13 @@ def test_output_field_write_jsonls():
         data = [
             {"id": 1, "value": "first"},
             {"id": 2, "value": "second"},
-            {"id": 3, "value": "third"}
+            {"id": 3, "value": "third"},
         ]
 
         output_field.writeJsons(data)
 
         # Read back and verify
-        with open(output_path, 'r') as f:
+        with open(output_path, "r") as f:
             lines = f.readlines()
 
         assert len(lines) == 3
@@ -86,7 +86,7 @@ def test_output_field_creates_parent_directory():
         output_field.writeJsons(data)
 
         assert output_path.exists()
-        with open(output_path, 'r') as f:
+        with open(output_path, "r") as f:
             result = json.loads(f.readline())
         assert result == {"test": "value"}
 
@@ -98,17 +98,17 @@ def test_builder_single_input_output():
         output_path = Path(tmpdir) / "output.jsonl"
 
         # Create input file
-        with open(input_path, 'w') as f:
+        with open(input_path, "w") as f:
             f.write('{"data": "test"}\n')
 
         # Mock command line arguments
-        test_args = ['--input', str(input_path), '--output', str(output_path)]
+        test_args = ["--input", str(input_path), "--output", str(output_path)]
 
-        with patch('sys.argv', ['test_script.py'] + test_args):
+        with patch("sys.argv", ["test_script.py"] + test_args):
             args = StepArgsBuilder().input().output().build()
 
             # Test input field
-            assert hasattr(args, 'input')
+            assert hasattr(args, "input")
             assert isinstance(args.input, InputField)
             assert args.input.path == str(input_path)
 
@@ -116,13 +116,13 @@ def test_builder_single_input_output():
             assert data == [{"data": "test"}]
 
             # Test output field
-            assert hasattr(args, 'output')
+            assert hasattr(args, "output")
             assert isinstance(args.output, OutputField)
             assert args.output.path == str(output_path)
 
             args.output.writeJsons([{"result": "success"}])
 
-            with open(output_path, 'r') as f:
+            with open(output_path, "r") as f:
                 result = json.loads(f.readline())
             assert result == {"result": "success"}
 
@@ -136,48 +136,54 @@ def test_builder_multiple_inputs_outputs():
         output2_path = Path(tmpdir) / "output2.jsonl"
 
         # Create input files
-        with open(input1_path, 'w') as f:
+        with open(input1_path, "w") as f:
             f.write('{"source": 1}\n')
-        with open(input2_path, 'w') as f:
+        with open(input2_path, "w") as f:
             f.write('{"source": 2}\n')
 
         test_args = [
-            '--data-source', str(input1_path),
-            '--config-file', str(input2_path),
-            '--result-file', str(output1_path),
-            '--log-file', str(output2_path)
+            "--data-source",
+            str(input1_path),
+            "--config-file",
+            str(input2_path),
+            "--result-file",
+            str(output1_path),
+            "--log-file",
+            str(output2_path),
         ]
 
-        with patch('sys.argv', ['test_script.py'] + test_args):
-            args = (StepArgsBuilder()
-                    .input('data_source')
-                    .input('config_file')
-                    .output('result_file')
-                    .output('log_file')
-                    .build())
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = (
+                StepArgsBuilder()
+                .input("data_source")
+                .input("config_file")
+                .output("result_file")
+                .output("log_file")
+                .build()
+            )
 
             # Test inputs
-            assert hasattr(args, 'data_source')
-            assert hasattr(args, 'config_file')
+            assert hasattr(args, "data_source")
+            assert hasattr(args, "config_file")
             assert args.data_source.readJsons() == [{"source": 1}]
             assert args.config_file.readJsons() == [{"source": 2}]
 
             # Test outputs
-            assert hasattr(args, 'result_file')
-            assert hasattr(args, 'log_file')
+            assert hasattr(args, "result_file")
+            assert hasattr(args, "log_file")
 
             args.result_file.writeJsons([{"output": 1}])
             args.log_file.writeJsons([{"log": "entry"}])
 
-            with open(output1_path, 'r') as f:
+            with open(output1_path, "r") as f:
                 assert json.loads(f.readline()) == {"output": 1}
-            with open(output2_path, 'r') as f:
+            with open(output2_path, "r") as f:
                 assert json.loads(f.readline()) == {"log": "entry"}
 
 
 def test_builder_no_inputs_or_outputs():
     """Test builder with no inputs or outputs."""
-    with patch('sys.argv', ['test_script.py']):
+    with patch("sys.argv", ["test_script.py"]):
         args = StepArgsBuilder().build()
         # Should create empty args object without errors
         assert args is not None

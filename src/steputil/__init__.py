@@ -5,4 +5,11 @@ from steputil.argparser import StepArgsBuilder, StepArgs, InputField, OutputFiel
 
 __version__ = "0.1.0"
 
-__all__ = ["info", "__version__", "StepArgsBuilder", "StepArgs", "InputField", "OutputField"]
+__all__ = [
+    "info",
+    "__version__",
+    "StepArgsBuilder",
+    "StepArgs",
+    "InputField",
+    "OutputField",
+]
