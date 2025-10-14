@@ -12,5 +12,5 @@ def test_version():
 def test_info():
     """Test the info function."""
     result = steputil.info()
-    assert result == "Hello World"
+    assert result == "Hello New World"
     assert isinstance(result, str)
