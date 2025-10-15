@@ -2,9 +2,9 @@
 
 
 def info() -> str:
-    """Return a hello world string.
+    """Return a short description.
 
     Returns:
-        str: A greeting message.
+        str: A description.
     """
-    return "Hello New World"
+    return "steputil - Utilities for building pipeline steps with configurable command-line argument parsing for JSONL input/output files"
