@@ -3,7 +3,7 @@
 from steputil.info import info
 from steputil.argparser import StepArgsBuilder, StepArgs, InputField, OutputField
 
-__version__ = "0.1.0"
+__version__ = "0.2.2"
 
 __all__ = [
     "info",
