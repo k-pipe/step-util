@@ -5,6 +5,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from steputil import StepArgsBuilder, InputField, OutputField
 
 
@@ -193,3 +195,164 @@ def test_builder_chaining():
     builder = StepArgsBuilder()
     assert builder.input() is builder
     assert builder.output() is builder
+    assert builder.config("test_field") is builder
+
+
+def test_config_required_field():
+    """Test config with required field."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+        input_path = Path(tmpdir) / "input.jsonl"
+
+        # Create config file
+        with open(config_path, "w") as f:
+            json.dump({"api_key": "secret123"}, f)
+
+        # Create input file
+        with open(input_path, "w") as f:
+            f.write('{"data": "test"}\n')
+
+        test_args = ["--input", str(input_path), "--config", str(config_path)]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().input().config("api_key").build()
+
+            assert hasattr(args, "config")
+            assert hasattr(args.config, "api_key")
+            assert args.config.api_key == "secret123"
+
+
+def test_config_optional_field_with_value():
+    """Test optional config field with value provided."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+        input_path = Path(tmpdir) / "input.jsonl"
+
+        with open(config_path, "w") as f:
+            json.dump({"timeout": 30}, f)
+
+        with open(input_path, "w") as f:
+            f.write('{"data": "test"}\n')
+
+        test_args = ["--input", str(input_path), "--config", str(config_path)]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().input().config("timeout", optional=True).build()
+
+            assert args.config.timeout == 30
+
+
+def test_config_optional_field_without_value():
+    """Test optional config field without value (should be None)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+        input_path = Path(tmpdir) / "input.jsonl"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        with open(input_path, "w") as f:
+            f.write('{"data": "test"}\n')
+
+        test_args = ["--input", str(input_path), "--config", str(config_path)]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().input().config("timeout", optional=True).build()
+
+            assert args.config.timeout is None
+
+
+def test_config_default_value():
+    """Test config field with default value."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+        input_path = Path(tmpdir) / "input.jsonl"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        with open(input_path, "w") as f:
+            f.write('{"data": "test"}\n')
+
+        test_args = ["--input", str(input_path), "--config", str(config_path)]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().input().config("timeout", default_value=60).build()
+
+            assert args.config.timeout == 60
+
+
+def test_config_value_overrides_default():
+    """Test that config file value overrides default."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+        input_path = Path(tmpdir) / "input.jsonl"
+
+        with open(config_path, "w") as f:
+            json.dump({"timeout": 30}, f)
+
+        with open(input_path, "w") as f:
+            f.write('{"data": "test"}\n')
+
+        test_args = ["--input", str(input_path), "--config", str(config_path)]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().input().config("timeout", default_value=60).build()
+
+            assert args.config.timeout == 30
+
+
+def test_config_missing_required_field():
+    """Test that missing required field raises ValueError."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+        input_path = Path(tmpdir) / "input.jsonl"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        with open(input_path, "w") as f:
+            f.write('{"data": "test"}\n')
+
+        test_args = ["--input", str(input_path), "--config", str(config_path)]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            with pytest.raises(ValueError, match="Required configuration field"):
+                StepArgsBuilder().input().config("api_key").build()
+
+
+def test_config_multiple_fields():
+    """Test config with multiple fields of different types."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+        input_path = Path(tmpdir) / "input.jsonl"
+
+        config_data = {
+            "api_key": "secret123",
+            "timeout": 30,
+            "max_retries": 3,
+        }
+
+        with open(config_path, "w") as f:
+            json.dump(config_data, f)
+
+        with open(input_path, "w") as f:
+            f.write('{"data": "test"}\n')
+
+        test_args = ["--input", str(input_path), "--config", str(config_path)]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = (
+                StepArgsBuilder()
+                .input()
+                .config("api_key")
+                .config("timeout", default_value=60)
+                .config("max_retries", optional=True)
+                .config("debug", optional=True, default_value=False)
+                .build()
+            )
+
+            assert args.config.api_key == "secret123"
+            assert args.config.timeout == 30
+            assert args.config.max_retries == 3
+            assert args.config.debug is False

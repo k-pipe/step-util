@@ -1,7 +1,13 @@
 """steputil - Utilities to simplify creation of pipeline steps."""
 
 from steputil.info import info
-from steputil.argparser import StepArgsBuilder, StepArgs, InputField, OutputField
+from steputil.argparser import (
+    StepArgsBuilder,
+    StepArgs,
+    InputField,
+    OutputField,
+    Config,
+)
 
 __version__ = "0.2.2"
 
@@ -12,4 +18,5 @@ __all__ = [
     "StepArgs",
     "InputField",
     "OutputField",
+    "Config",
 ]
