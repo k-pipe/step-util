@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 
 
 class InputField:
@@ -121,6 +121,7 @@ class StepArgsBuilder:
         self._inputs: List[tuple[str, Optional[str]]] = []
         self._outputs: List[tuple[str, Optional[str]]] = []
         self._configs: List[tuple[str, bool, Any]] = []  # (name, optional, default)
+        self._validation_callback: Optional[Callable[[Config], bool]] = None
 
     def input(self, name: Optional[str] = None) -> "StepArgsBuilder":
         """Add an input field to the argument parser.
@@ -165,6 +166,18 @@ class StepArgsBuilder:
             Self for method chaining.
         """
         self._configs.append((name, optional, default_value))
+        return self
+
+    def validate(self, callback: Callable[[Config], bool]) -> "StepArgsBuilder":
+        """Add a validation callback for configuration.
+
+        Args:
+            callback: Function that takes Config object and returns True if valid.
+
+        Returns:
+            Self for method chaining.
+        """
+        self._validation_callback = callback
         return self
 
     def build(self) -> StepArgs:
@@ -238,6 +251,11 @@ class StepArgsBuilder:
             config_path = normalized_dict.pop("config")
             config_data = self._load_config_file(config_path)
             config_obj = self._create_config_object(config_data)
+
+            # Validate config if validation callback is provided
+            if self._validation_callback is not None:
+                if not self._validation_callback(config_obj):
+                    raise ValueError("Configuration validation failed")
 
         return StepArgs(normalized_dict, input_names, output_names, config_obj)
 

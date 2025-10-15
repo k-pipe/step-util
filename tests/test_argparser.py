@@ -356,3 +356,124 @@ def test_config_multiple_fields():
             assert args.config.timeout == 30
             assert args.config.max_retries == 3
             assert args.config.debug is False
+
+
+def test_validate_success():
+    """Test validation callback that returns True."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+        input_path = Path(tmpdir) / "input.jsonl"
+
+        with open(config_path, "w") as f:
+            json.dump({"timeout": 30}, f)
+
+        with open(input_path, "w") as f:
+            f.write('{"data": "test"}\n')
+
+        test_args = ["--input", str(input_path), "--config", str(config_path)]
+
+        def validate_timeout(config):
+            return config.timeout > 0
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = (
+                StepArgsBuilder()
+                .input()
+                .config("timeout")
+                .validate(validate_timeout)
+                .build()
+            )
+
+            assert args.config.timeout == 30
+
+
+def test_validate_failure():
+    """Test validation callback that returns False."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+        input_path = Path(tmpdir) / "input.jsonl"
+
+        with open(config_path, "w") as f:
+            json.dump({"timeout": -10}, f)
+
+        with open(input_path, "w") as f:
+            f.write('{"data": "test"}\n')
+
+        test_args = ["--input", str(input_path), "--config", str(config_path)]
+
+        def validate_timeout(config):
+            return config.timeout > 0
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            with pytest.raises(ValueError, match="Configuration validation failed"):
+                (
+                    StepArgsBuilder()
+                    .input()
+                    .config("timeout")
+                    .validate(validate_timeout)
+                    .build()
+                )
+
+
+def test_validate_complex_rules():
+    """Test validation with complex rules checking multiple fields."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+        input_path = Path(tmpdir) / "input.jsonl"
+
+        config_data = {"min_value": 10, "max_value": 100}
+
+        with open(config_path, "w") as f:
+            json.dump(config_data, f)
+
+        with open(input_path, "w") as f:
+            f.write('{"data": "test"}\n')
+
+        test_args = ["--input", str(input_path), "--config", str(config_path)]
+
+        def validate_range(config):
+            return config.min_value < config.max_value
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = (
+                StepArgsBuilder()
+                .input()
+                .config("min_value")
+                .config("max_value")
+                .validate(validate_range)
+                .build()
+            )
+
+            assert args.config.min_value == 10
+            assert args.config.max_value == 100
+
+
+def test_validate_complex_rules_failure():
+    """Test validation failure with complex rules."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+        input_path = Path(tmpdir) / "input.jsonl"
+
+        config_data = {"min_value": 100, "max_value": 10}
+
+        with open(config_path, "w") as f:
+            json.dump(config_data, f)
+
+        with open(input_path, "w") as f:
+            f.write('{"data": "test"}\n')
+
+        test_args = ["--input", str(input_path), "--config", str(config_path)]
+
+        def validate_range(config):
+            return config.min_value < config.max_value
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            with pytest.raises(ValueError, match="Configuration validation failed"):
+                (
+                    StepArgsBuilder()
+                    .input()
+                    .config("min_value")
+                    .config("max_value")
+                    .validate(validate_range)
+                    .build()
+                )
