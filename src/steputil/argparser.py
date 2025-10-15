@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -125,9 +126,22 @@ class StepArgsBuilder:
     def build(self) -> StepArgs:
         """Build the argument parser and parse command-line arguments.
 
+        If no command-line arguments are provided and inputs/outputs are defined,
+        prints the contents of /app/README.md and exits.
+
         Returns:
             StepArgs object with parsed input/output fields.
         """
+        # Check if command line is empty and we have inputs/outputs defined
+        if len(sys.argv) == 1 and (self._inputs or self._outputs):
+            readme_path = Path("/app/README.md")
+            try:
+                with open(readme_path, "r", encoding="utf-8") as f:
+                    print(f.read())
+            except FileNotFoundError:
+                print(f"README.md not found at {readme_path}", file=sys.stderr)
+            sys.exit(0)
+
         parser = argparse.ArgumentParser(
             description="Pipeline step with configurable inputs and outputs"
         )

@@ -12,5 +12,10 @@ def test_version():
 def test_info():
     """Test the info function."""
     result = steputil.info()
-    assert result == "steputil - Utilities for building pipeline steps with configurable command-line argument parsing for JSONL input/output files"
+    expected = (
+        "steputil - Utilities for building pipeline steps with "
+        "configurable command-line argument parsing for JSONL "
+        "input/output files"
+    )
+    assert result == expected
     assert isinstance(result, str)

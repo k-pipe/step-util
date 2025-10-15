@@ -7,4 +7,8 @@ def info() -> str:
     Returns:
         str: A description.
     """
-    return "steputil - Utilities for building pipeline steps with configurable command-line argument parsing for JSONL input/output files"
+    return (
+        "steputil - Utilities for building pipeline steps with "
+        "configurable command-line argument parsing for JSONL "
+        "input/output files"
+    )
