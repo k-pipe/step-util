@@ -259,7 +259,10 @@ class StepArgsBuilder:
             json.JSONDecodeError: If config file contains invalid JSON.
         """
         with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            if not isinstance(data, dict):
+                raise ValueError("Config file must contain a JSON object")
+            return data
 
     def _create_config_object(self, config_data: Dict[str, Any]) -> Config:
         """Create Config object from configuration data.
