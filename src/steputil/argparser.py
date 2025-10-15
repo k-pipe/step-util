@@ -120,9 +120,7 @@ class StepArgsBuilder:
         """Initialize the builder."""
         self._inputs: List[tuple[str, Optional[str]]] = []
         self._outputs: List[tuple[str, Optional[str]]] = []
-        self._configs: List[tuple[str, bool, Any, Optional[str]]] = (
-            []
-        )  # (name, optional, default, description)
+        self._configs: List[tuple[str, bool, Any]] = []  # (name, optional, default)
 
     def input(self, name: Optional[str] = None) -> "StepArgsBuilder":
         """Add an input field to the argument parser.
@@ -155,7 +153,6 @@ class StepArgsBuilder:
         name: str,
         optional: bool = False,
         default_value: Any = _UNSET,
-        description: Optional[str] = None,
     ) -> "StepArgsBuilder":
         """Add a configuration field.
 
@@ -163,12 +160,11 @@ class StepArgsBuilder:
             name: Name of the configuration field (required).
             optional: Whether the field is optional. Defaults to False.
             default_value: Default value if not set in config file.
-            description: Description of the configuration field.
 
         Returns:
             Self for method chaining.
         """
-        self._configs.append((name, optional, default_value, description))
+        self._configs.append((name, optional, default_value))
         return self
 
     def build(self) -> StepArgs:
@@ -278,7 +274,7 @@ class StepArgsBuilder:
         """
         config_obj = Config()
 
-        for name, optional, default_value, description in self._configs:
+        for name, optional, default_value in self._configs:
             if name in config_data:
                 # Value exists in config file
                 value = config_data[name]
