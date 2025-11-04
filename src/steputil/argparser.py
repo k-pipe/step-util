@@ -96,7 +96,8 @@ class StepArgs:
         """Initialize StepArgs with parsed arguments.
 
         Args:
-            args_dict: Dictionary of argument name to value (can be None for optional inputs).
+            args_dict: Dictionary of argument name to value
+                (can be None for optional inputs).
             input_names: List of input field names.
             output_names: List of output field names.
             config_obj: Optional Config object with configuration values.
