@@ -10,11 +10,11 @@ from typing import List, Dict, Any, Optional, Callable
 class InputField:
     """Represents an input file field with JSONL reading capability."""
 
-    def __init__(self, path: str):
+    def __init__(self, path: Optional[str]):
         """Initialize an input field with a file path.
 
         Args:
-            path: Path to the input file.
+            path: Path to the input file. Can be None for optional inputs.
         """
         self.path = path
 
@@ -23,11 +23,15 @@ class InputField:
 
         Returns:
             List of dictionaries representing JSON objects from the file.
+            Returns empty list if path is None (optional input not provided).
 
         Raises:
             FileNotFoundError: If the input file doesn't exist.
             json.JSONDecodeError: If a line contains invalid JSON.
         """
+        if self.path is None:
+            return []
+
         result = []
         with open(self.path, "r", encoding="utf-8") as f:
             for line_num, line in enumerate(f, 1):
@@ -45,11 +49,11 @@ class InputField:
 class OutputField:
     """Represents an output file field with JSONL writing capability."""
 
-    def __init__(self, path: str):
+    def __init__(self, path: Optional[str]):
         """Initialize an output field with a file path.
 
         Args:
-            path: Path to the output file.
+            path: Path to the output file. Can be None for optional outputs.
         """
         self.path = path
 
@@ -58,7 +62,13 @@ class OutputField:
 
         Args:
             jsons: List of dictionaries to write as JSON lines.
+
+        Note:
+            If path is None (optional output not provided), this method does nothing.
         """
+        if self.path is None:
+            return
+
         # Create parent directory if it doesn't exist
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -78,7 +88,7 @@ class StepArgs:
 
     def __init__(
         self,
-        args_dict: Dict[str, str],
+        args_dict: Dict[str, Optional[str]],
         input_names: List[str],
         output_names: List[str],
         config_obj: Optional[Config] = None,
@@ -86,18 +96,18 @@ class StepArgs:
         """Initialize StepArgs with parsed arguments.
 
         Args:
-            args_dict: Dictionary of argument name to value.
+            args_dict: Dictionary of argument name to value (can be None for optional inputs).
             input_names: List of input field names.
             output_names: List of output field names.
             config_obj: Optional Config object with configuration values.
         """
         # Create InputField objects for each input
         for name in input_names:
-            setattr(self, name, InputField(args_dict[name]))
+            setattr(self, name, InputField(args_dict.get(name)))
 
         # Create OutputField objects for each output
         for name in output_names:
-            setattr(self, name, OutputField(args_dict[name]))
+            setattr(self, name, OutputField(args_dict.get(name)))
 
         # Set config object if provided
         if config_obj is not None:
@@ -118,35 +128,37 @@ class StepArgsBuilder:
 
     def __init__(self):
         """Initialize the builder."""
-        self._inputs: List[tuple[str, Optional[str]]] = []
-        self._outputs: List[tuple[str, Optional[str]]] = []
+        self._inputs: List[tuple[str, Optional[str], bool]] = []  # (field_name, original_name, optional)
+        self._outputs: List[tuple[str, Optional[str], bool]] = []  # (field_name, original_name, optional)
         self._configs: List[tuple[str, bool, Any]] = []  # (name, optional, default)
         self._validation_callback: Optional[Callable[[Config], bool]] = None
 
-    def input(self, name: Optional[str] = None) -> "StepArgsBuilder":
+    def input(self, name: Optional[str] = None, optional: bool = False) -> "StepArgsBuilder":
         """Add an input field to the argument parser.
 
         Args:
             name: Name of the input parameter. If None, uses 'input'.
+            optional: If True, the input argument is optional. Defaults to False.
 
         Returns:
             Self for method chaining.
         """
         field_name = name if name is not None else "input"
-        self._inputs.append((field_name, name))
+        self._inputs.append((field_name, name, optional))
         return self
 
-    def output(self, name: Optional[str] = None) -> "StepArgsBuilder":
+    def output(self, name: Optional[str] = None, optional: bool = False) -> "StepArgsBuilder":
         """Add an output field to the argument parser.
 
         Args:
             name: Name of the output parameter. If None, uses 'output'.
+            optional: If True, the output argument is optional. Defaults to False.
 
         Returns:
             Self for method chaining.
         """
         field_name = name if name is not None else "output"
-        self._outputs.append((field_name, name))
+        self._outputs.append((field_name, name, optional))
         return self
 
     def config(
@@ -180,6 +192,15 @@ class StepArgsBuilder:
         self._validation_callback = callback
         return self
 
+    def _print_buildinfo(self) -> None:
+        """Print buildinfo from /app/buildinfo file if it exists."""
+        buildinfo_path = Path("/app/buildinfo")
+        try:
+            with open(buildinfo_path, "r", encoding="utf-8") as f:
+                print(f.read().strip())
+        except FileNotFoundError:
+            pass  # Silently skip if file doesn't exist
+
     def build(self) -> StepArgs:
         """Build the argument parser and parse command-line arguments.
 
@@ -192,6 +213,9 @@ class StepArgsBuilder:
         Raises:
             ValueError: If a required config field is missing or invalid.
         """
+        # Print buildinfo at the start
+        self._print_buildinfo()
+
         # Check if command line is empty and we have inputs/outputs defined
         if len(sys.argv) == 1 and (self._inputs or self._outputs):
             readme_path = Path("/app/README.md")
@@ -207,22 +231,24 @@ class StepArgsBuilder:
         )
 
         # Add input arguments
-        for field_name, original_name in self._inputs:
+        for field_name, original_name, is_optional in self._inputs:
             arg_name = f'--{field_name.replace("_", "-")}'
             parser.add_argument(
                 arg_name,
                 type=str,
-                required=True,
+                required=not is_optional,
+                default=None if is_optional else argparse.SUPPRESS,
                 help=f"Path to input file for {field_name}",
             )
 
         # Add output arguments
-        for field_name, original_name in self._outputs:
+        for field_name, original_name, is_optional in self._outputs:
             arg_name = f'--{field_name.replace("_", "-")}'
             parser.add_argument(
                 arg_name,
                 type=str,
-                required=True,
+                required=not is_optional,
+                default=None if is_optional else argparse.SUPPRESS,
                 help=f"Path to output file for {field_name}",
             )
 
@@ -242,8 +268,8 @@ class StepArgsBuilder:
         # Convert dashes back to underscores for field names
         normalized_dict = {k.replace("-", "_"): v for k, v in args_dict.items()}
 
-        input_names = [name for name, _ in self._inputs]
-        output_names = [name for name, _ in self._outputs]
+        input_names = [name for name, _, _ in self._inputs]
+        output_names = [name for name, _, _ in self._outputs]
 
         # Process config if defined
         config_obj = None
