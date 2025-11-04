@@ -128,12 +128,12 @@ class StepArgsBuilder:
 
     def __init__(self):
         """Initialize the builder."""
-        self._inputs: List[
-            tuple[str, Optional[str], bool]
-        ] = []  # (field_name, original_name, optional)
-        self._outputs: List[
-            tuple[str, Optional[str], bool]
-        ] = []  # (field_name, original_name, optional)
+        self._inputs: List[tuple[str, Optional[str], bool]] = (
+            []
+        )  # (field_name, original_name, optional)
+        self._outputs: List[tuple[str, Optional[str], bool]] = (
+            []
+        )  # (field_name, original_name, optional)
         self._configs: List[tuple[str, bool, Any]] = []  # (name, optional, default)
         self._validation_callback: Optional[Callable[[Config], bool]] = None
 
