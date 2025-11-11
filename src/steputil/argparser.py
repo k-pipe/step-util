@@ -57,11 +57,16 @@ class OutputField:
         """
         self.path = path
 
-    def writeJsons(self, jsons: List[Dict[str, Any]]) -> None:
+    def writeJsons(
+        self, jsons: List[Dict[str, Any]], filename: Optional[str] = None
+    ) -> None:
         """Write list of JSON objects to JSONL file.
 
         Args:
             jsons: List of dictionaries to write as JSON lines.
+            filename: Optional filename for batching scenarios. If provided,
+                self.path is treated as a directory and the file is written
+                to self.path/filename.
 
         Note:
             If path is None (optional output not provided), this method does nothing.
@@ -69,10 +74,19 @@ class OutputField:
         if self.path is None:
             return
 
-        # Create parent directory if it doesn't exist
-        Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+        # Determine the actual output path
+        if filename is not None:
+            # Treat self.path as a directory
+            output_path = Path(self.path) / filename
+            # Create directory if it doesn't exist
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            # Treat self.path as a file path
+            output_path = Path(self.path)
+            # Create parent directory if it doesn't exist
+            output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(self.path, "w", encoding="utf-8") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             for obj in jsons:
                 f.write(json.dumps(obj, ensure_ascii=False) + "\n")
 

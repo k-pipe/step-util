@@ -477,3 +477,111 @@ def test_validate_complex_rules_failure():
                     .validate(validate_range)
                     .build()
                 )
+
+
+def test_output_field_write_with_filename():
+    """Test writing JSONL file with filename parameter for batching."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_dir = Path(tmpdir) / "output"
+        output_field = OutputField(str(output_dir))
+
+        data = [
+            {"id": 1, "value": "first"},
+            {"id": 2, "value": "second"},
+        ]
+
+        # Write to a specific file in the directory
+        output_field.writeJsons(data, filename="batch1.jsonl")
+
+        # Verify the file was created
+        output_path = output_dir / "batch1.jsonl"
+        assert output_path.exists()
+
+        # Read back and verify
+        with open(output_path, "r") as f:
+            lines = f.readlines()
+
+        assert len(lines) == 2
+        assert json.loads(lines[0]) == {"id": 1, "value": "first"}
+        assert json.loads(lines[1]) == {"id": 2, "value": "second"}
+
+
+def test_output_field_write_multiple_files_in_folder():
+    """Test writing multiple JSONL files to the same folder."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_dir = Path(tmpdir) / "output"
+        output_field = OutputField(str(output_dir))
+
+        # Write first batch
+        batch1_data = [{"batch": 1, "item": 1}, {"batch": 1, "item": 2}]
+        output_field.writeJsons(batch1_data, filename="batch1.jsonl")
+
+        # Write second batch
+        batch2_data = [{"batch": 2, "item": 1}, {"batch": 2, "item": 2}]
+        output_field.writeJsons(batch2_data, filename="batch2.jsonl")
+
+        # Write third batch
+        batch3_data = [{"batch": 3, "item": 1}]
+        output_field.writeJsons(batch3_data, filename="batch3.jsonl")
+
+        # Verify all files were created
+        assert (output_dir / "batch1.jsonl").exists()
+        assert (output_dir / "batch2.jsonl").exists()
+        assert (output_dir / "batch3.jsonl").exists()
+
+        # Verify contents
+        with open(output_dir / "batch1.jsonl", "r") as f:
+            lines = f.readlines()
+            assert len(lines) == 2
+            assert json.loads(lines[0]) == {"batch": 1, "item": 1}
+
+        with open(output_dir / "batch2.jsonl", "r") as f:
+            lines = f.readlines()
+            assert len(lines) == 2
+            assert json.loads(lines[0]) == {"batch": 2, "item": 1}
+
+        with open(output_dir / "batch3.jsonl", "r") as f:
+            lines = f.readlines()
+            assert len(lines) == 1
+            assert json.loads(lines[0]) == {"batch": 3, "item": 1}
+
+
+def test_output_field_write_with_nested_filename():
+    """Test writing JSONL file with nested path in filename parameter."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_dir = Path(tmpdir) / "output"
+        output_field = OutputField(str(output_dir))
+
+        data = [{"id": 1, "value": "test"}]
+
+        # Write to a nested path within the directory
+        output_field.writeJsons(data, filename="subdir/nested/file.jsonl")
+
+        # Verify the file was created with nested directories
+        output_path = output_dir / "subdir" / "nested" / "file.jsonl"
+        assert output_path.exists()
+
+        # Read back and verify
+        with open(output_path, "r") as f:
+            result = json.loads(f.readline())
+        assert result == {"id": 1, "value": "test"}
+
+
+def test_output_field_backward_compatibility():
+    """Test that existing code without filename parameter still works."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "output.jsonl"
+        output_field = OutputField(str(output_path))
+
+        data = [{"id": 1, "value": "test"}]
+
+        # Call without filename parameter (old behavior)
+        output_field.writeJsons(data)
+
+        # Verify the file was created at the original path
+        assert output_path.exists()
+
+        # Read back and verify
+        with open(output_path, "r") as f:
+            result = json.loads(f.readline())
+        assert result == {"id": 1, "value": "test"}
