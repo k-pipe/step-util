@@ -106,6 +106,8 @@ class StepArgs:
         input_names: List[str],
         output_names: List[str],
         config_obj: Optional[Config] = None,
+        dynamic_inputs: Optional[Dict[str, str]] = None,
+        dynamic_outputs: Optional[Dict[str, str]] = None,
     ):
         """Initialize StepArgs with parsed arguments.
 
@@ -115,6 +117,8 @@ class StepArgs:
             input_names: List of input field names.
             output_names: List of output field names.
             config_obj: Optional Config object with configuration values.
+            dynamic_inputs: Optional dictionary of dynamic input names to paths.
+            dynamic_outputs: Optional dictionary of dynamic output names to paths.
         """
         # Create InputField objects for each input
         for name in input_names:
@@ -127,6 +131,12 @@ class StepArgs:
         # Set config object if provided
         if config_obj is not None:
             self.config = config_obj
+
+        # Set dynamic inputs/outputs if provided
+        if dynamic_inputs is not None:
+            self.inputs = dynamic_inputs
+        if dynamic_outputs is not None:
+            self.outputs = dynamic_outputs
 
 
 class _Sentinel:
@@ -151,6 +161,8 @@ class StepArgsBuilder:
         )  # (field_name, original_name, optional)
         self._configs: List[tuple[str, bool, Any]] = []  # (name, optional, default)
         self._validation_callback: Optional[Callable[[Config], bool]] = None
+        self._collect_dynamic_inputs: bool = False
+        self._collect_dynamic_outputs: bool = False
 
     def input(
         self, name: Optional[str] = None, optional: bool = False
@@ -182,6 +194,28 @@ class StepArgsBuilder:
         """
         field_name = name if name is not None else "output"
         self._outputs.append((field_name, name, optional))
+        return self
+
+    def inputs(self) -> "StepArgsBuilder":
+        """Enable collection of all --input-<name> arguments.
+
+        Results available in step.inputs as a dict mapping name to path.
+
+        Returns:
+            Self for method chaining.
+        """
+        self._collect_dynamic_inputs = True
+        return self
+
+    def outputs(self) -> "StepArgsBuilder":
+        """Enable collection of all --output-<name> arguments.
+
+        Results available in step.outputs as a dict mapping name to path.
+
+        Returns:
+            Self for method chaining.
+        """
+        self._collect_dynamic_outputs = True
         return self
 
     def config(
@@ -284,9 +318,81 @@ class StepArgsBuilder:
                 help="Path to configuration JSON file",
             )
 
-        # Parse arguments
-        args = parser.parse_args()
-        args_dict = vars(args)
+        # Parse arguments (use parse_known_args if we need to collect dynamic inputs/outputs)
+        if self._collect_dynamic_inputs or self._collect_dynamic_outputs:
+            args, unknown = parser.parse_known_args()
+            args_dict = vars(args)
+
+            # Parse dynamic inputs and outputs from unknown args
+            dynamic_inputs_dict = {}
+            dynamic_outputs_dict = {}
+
+            # Parse unknown arguments into a dictionary
+            unknown_args = {}
+            i = 0
+            while i < len(unknown):
+                arg = unknown[i]
+                if not arg.startswith("--"):
+                    raise ValueError(f"Invalid argument format: {arg}")
+
+                if i + 1 >= len(unknown) or unknown[i + 1].startswith("--"):
+                    raise ValueError(f"Missing value for argument {arg}")
+
+                key = arg[2:]  # Remove "--" prefix
+                value = unknown[i + 1]
+                unknown_args[key] = value
+                i += 2
+
+            # Handle different cases based on whether both inputs and outputs are enabled
+            if self._collect_dynamic_inputs and self._collect_dynamic_outputs:
+                # Case: both .inputs() and .outputs() are called
+                has_input = "input" in unknown_args
+                has_output = "output" in unknown_args
+
+                if has_input and has_output:
+                    # Use --input as dynamic input and --output as dynamic output
+                    # Expect no other arguments
+                    if len(unknown_args) > 2:
+                        extra_args = [k for k in unknown_args.keys() if k not in ["input", "output"]]
+                        raise ValueError(f"Unexpected arguments when both --input and --output specified: {extra_args}")
+                    dynamic_inputs_dict["input"] = unknown_args["input"]
+                    dynamic_outputs_dict["output"] = unknown_args["output"]
+                elif has_input:
+                    # Use --input as dynamic input, all others as dynamic outputs
+                    dynamic_inputs_dict["input"] = unknown_args["input"]
+                    for key, value in unknown_args.items():
+                        if key != "input":
+                            dynamic_outputs_dict[key] = value
+                elif has_output:
+                    # Use --output as dynamic output, all others as dynamic inputs
+                    dynamic_outputs_dict["output"] = unknown_args["output"]
+                    for key, value in unknown_args.items():
+                        if key != "output":
+                            dynamic_inputs_dict[key] = value
+                else:
+                    # No --input or --output, split based on prefixes
+                    for key, value in unknown_args.items():
+                        if key.startswith("input-"):
+                            name = key[6:]  # Remove "input-" prefix
+                            dynamic_inputs_dict[name] = value
+                        elif key.startswith("output-"):
+                            name = key[7:]  # Remove "output-" prefix
+                            dynamic_outputs_dict[name] = value
+                        else:
+                            raise ValueError(f"Ambiguous argument --{key}: must use --input-<name> or --output-<name> prefix")
+            elif self._collect_dynamic_inputs:
+                # Case: only .inputs() is called
+                # Use all unknown args as dynamic inputs (no prefix required)
+                dynamic_inputs_dict = unknown_args
+            elif self._collect_dynamic_outputs:
+                # Case: only .outputs() is called
+                # Use all unknown args as dynamic outputs (no prefix required)
+                dynamic_outputs_dict = unknown_args
+        else:
+            args = parser.parse_args()
+            args_dict = vars(args)
+            dynamic_inputs_dict = None
+            dynamic_outputs_dict = None
 
         # Convert dashes back to underscores for field names
         normalized_dict = {k.replace("-", "_"): v for k, v in args_dict.items()}
@@ -306,7 +412,14 @@ class StepArgsBuilder:
                 if not self._validation_callback(config_obj):
                     raise ValueError("Configuration validation failed")
 
-        return StepArgs(normalized_dict, input_names, output_names, config_obj)
+        return StepArgs(
+            normalized_dict,
+            input_names,
+            output_names,
+            config_obj,
+            dynamic_inputs_dict if self._collect_dynamic_inputs else None,
+            dynamic_outputs_dict if self._collect_dynamic_outputs else None,
+        )
 
     def _load_config_file(self, config_path: str) -> Dict[str, Any]:
         """Load configuration from JSON file.

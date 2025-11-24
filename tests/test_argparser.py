@@ -585,3 +585,397 @@ def test_output_field_backward_compatibility():
         with open(output_path, "r") as f:
             result = json.loads(f.readline())
         assert result == {"id": 1, "value": "test"}
+
+
+def test_dynamic_inputs_basic():
+    """Test dynamic inputs with .inputs() method (no prefix required when only inputs)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--data",
+            "/vol/data",
+            "--models",
+            "/vol/models",
+            "--reference",
+            "/vol/reference",
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("dummy", optional=True).inputs().build()
+
+            assert hasattr(args, "inputs")
+            assert isinstance(args.inputs, dict)
+            assert args.inputs == {
+                "data": "/vol/data",
+                "models": "/vol/models",
+                "reference": "/vol/reference",
+            }
+
+
+def test_dynamic_outputs_basic():
+    """Test dynamic outputs with .outputs() method (no prefix required when only outputs)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--results",
+            "/vol/results",
+            "--metrics",
+            "/vol/metrics",
+            "--logs",
+            "/vol/logs",
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("dummy", optional=True).outputs().build()
+
+            assert hasattr(args, "outputs")
+            assert isinstance(args.outputs, dict)
+            assert args.outputs == {
+                "results": "/vol/results",
+                "metrics": "/vol/metrics",
+                "logs": "/vol/logs",
+            }
+
+
+def test_dynamic_inputs_and_outputs_combined():
+    """Test using both .inputs() and .outputs() together."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({"team": "data-science"}, f)
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--input-sales",
+            "/vol/sales",
+            "--input-customers",
+            "/vol/customers",
+            "--output-reports",
+            "/vol/reports",
+            "--output-archive",
+            "/vol/archive",
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("team").inputs().outputs().build()
+
+            assert hasattr(args, "inputs")
+            assert hasattr(args, "outputs")
+            assert args.inputs == {
+                "sales": "/vol/sales",
+                "customers": "/vol/customers",
+            }
+            assert args.outputs == {
+                "reports": "/vol/reports",
+                "archive": "/vol/archive",
+            }
+            assert args.config.team == "data-science"
+
+
+def test_dynamic_inputs_empty():
+    """Test that .inputs() with no matching arguments creates empty dict."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = ["--config", str(config_path)]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("dummy", optional=True).inputs().build()
+
+            assert hasattr(args, "inputs")
+            assert args.inputs == {}
+
+
+def test_dynamic_outputs_empty():
+    """Test that .outputs() with no matching arguments creates empty dict."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = ["--config", str(config_path)]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("dummy", optional=True).outputs().build()
+
+            assert hasattr(args, "outputs")
+            assert args.outputs == {}
+
+
+def test_dynamic_inputs_with_static_input():
+    """Test that .inputs() works alongside .input()."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+        static_input_path = Path(tmpdir) / "static.jsonl"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        with open(static_input_path, "w") as f:
+            f.write('{"test": "data"}\n')
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--input",
+            str(static_input_path),
+            "--extra1",
+            "/vol/extra1",
+            "--extra2",
+            "/vol/extra2",
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = (
+                StepArgsBuilder().config("dummy", optional=True).input().inputs().build()
+            )
+
+            # Check static input
+            assert hasattr(args, "input")
+            assert args.input.path == str(static_input_path)
+
+            # Check dynamic inputs - without prefix when only .inputs()
+            assert hasattr(args, "inputs")
+            assert args.inputs == {
+                "extra1": "/vol/extra1",
+                "extra2": "/vol/extra2",
+            }
+
+
+def test_dynamic_outputs_with_static_output():
+    """Test that .outputs() works alongside .output()."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+        static_output_path = Path(tmpdir) / "static.jsonl"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--output",
+            str(static_output_path),
+            "--extra1",
+            "/vol/extra1",
+            "--extra2",
+            "/vol/extra2",
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = (
+                StepArgsBuilder()
+                .config("dummy", optional=True)
+                .output()
+                .outputs()
+                .build()
+            )
+
+            # Check static output
+            assert hasattr(args, "output")
+            assert args.output.path == str(static_output_path)
+
+            # Check dynamic outputs - without prefix when only .outputs()
+            assert hasattr(args, "outputs")
+            assert args.outputs == {
+                "extra1": "/vol/extra1",
+                "extra2": "/vol/extra2",
+            }
+
+
+def test_dynamic_both_with_input_flag():
+    """Test that with both .inputs() and .outputs(), --input goes to inputs dict and rest to outputs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--input",
+            "/vol/input",
+            "--output1",
+            "/vol/output1",
+            "--output2",
+            "/vol/output2",
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("dummy", optional=True).inputs().outputs().build()
+
+            assert hasattr(args, "inputs")
+            assert hasattr(args, "outputs")
+            assert args.inputs == {"input": "/vol/input"}
+            assert args.outputs == {"output1": "/vol/output1", "output2": "/vol/output2"}
+
+
+def test_dynamic_both_with_output_flag():
+    """Test that with both .inputs() and .outputs(), --output goes to outputs dict and rest to inputs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--output",
+            "/vol/output",
+            "--input1",
+            "/vol/input1",
+            "--input2",
+            "/vol/input2",
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("dummy", optional=True).inputs().outputs().build()
+
+            assert hasattr(args, "inputs")
+            assert hasattr(args, "outputs")
+            assert args.inputs == {"input1": "/vol/input1", "input2": "/vol/input2"}
+            assert args.outputs == {"output": "/vol/output"}
+
+
+def test_dynamic_both_with_input_and_output_flags():
+    """Test that with both .inputs() and .outputs() and both --input and --output, only those two are allowed."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--input",
+            "/vol/input",
+            "--output",
+            "/vol/output",
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("dummy", optional=True).inputs().outputs().build()
+
+            assert hasattr(args, "inputs")
+            assert hasattr(args, "outputs")
+            assert args.inputs == {"input": "/vol/input"}
+            assert args.outputs == {"output": "/vol/output"}
+
+
+def test_dynamic_both_with_input_output_and_extra_raises():
+    """Test that with both --input and --output, extra args raise an error."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--input",
+            "/vol/input",
+            "--output",
+            "/vol/output",
+            "--extra",
+            "/vol/extra",
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            with pytest.raises(ValueError, match="Unexpected arguments"):
+                StepArgsBuilder().config("dummy", optional=True).inputs().outputs().build()
+
+
+def test_dynamic_inputs_no_inputs_method():
+    """Test that without .inputs(), step.inputs is not created."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = ["--config", str(config_path)]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("dummy", optional=True).build()
+
+            assert not hasattr(args, "inputs")
+
+
+def test_dynamic_outputs_no_outputs_method():
+    """Test that without .outputs(), step.outputs is not created."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = ["--config", str(config_path)]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("dummy", optional=True).build()
+
+            assert not hasattr(args, "outputs")
+
+
+def test_dynamic_inputs_and_outputs_ambiguous():
+    """Test that ambiguous arguments raise an error when both .inputs() and .outputs() are used."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--data",  # Ambiguous - needs input- or output- prefix
+            "/vol/data",
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            with pytest.raises(ValueError, match="Ambiguous argument"):
+                StepArgsBuilder().config("dummy", optional=True).inputs().outputs().build()
+
+
+def test_dynamic_inputs_missing_value():
+    """Test that missing value for dynamic input raises an error."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = ["--config", str(config_path), "--input-data"]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            with pytest.raises(ValueError, match="Missing value for argument"):
+                StepArgsBuilder().config("dummy", optional=True).inputs().build()
+
+
+def test_builder_method_chaining_with_dynamic():
+    """Test that .inputs() and .outputs() return self for chaining."""
+    builder = StepArgsBuilder()
+    assert builder.inputs() is builder
+    assert builder.outputs() is builder
