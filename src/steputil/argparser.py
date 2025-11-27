@@ -274,7 +274,7 @@ class StepArgsBuilder:
         self._print_buildinfo()
 
         # Check if command line is empty and we have inputs/outputs defined
-        if len(sys.argv) == 1 and (self._inputs or self._outputs):
+        if len(sys.argv) == 1:
             readme_path = Path("/app/README.md")
             try:
                 with open(readme_path, "r", encoding="utf-8") as f:
