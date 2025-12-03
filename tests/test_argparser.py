@@ -979,3 +979,115 @@ def test_builder_method_chaining_with_dynamic():
     builder = StepArgsBuilder()
     assert builder.inputs() is builder
     assert builder.outputs() is builder
+
+
+def test_dynamic_inputs_equals_format():
+    """Test dynamic inputs using --key=value format."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--data=/vol/data",
+            "--models=/vol/models",
+            "--reference=/vol/reference",
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("dummy", optional=True).inputs().build()
+
+            assert hasattr(args, "inputs")
+            assert isinstance(args.inputs, dict)
+            assert args.inputs == {
+                "data": "/vol/data",
+                "models": "/vol/models",
+                "reference": "/vol/reference",
+            }
+
+
+def test_dynamic_outputs_equals_format():
+    """Test dynamic outputs using --key=value format."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--results=/vol/results",
+            "--metrics=/vol/metrics",
+            "--logs=/vol/logs",
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("dummy", optional=True).outputs().build()
+
+            assert hasattr(args, "outputs")
+            assert isinstance(args.outputs, dict)
+            assert args.outputs == {
+                "results": "/vol/results",
+                "metrics": "/vol/metrics",
+                "logs": "/vol/logs",
+            }
+
+
+def test_dynamic_inputs_and_outputs_mixed_formats():
+    """Test using both --key=value and --key value formats together."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({"team": "data-science"}, f)
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--input-sales=/vol/sales",  # Using = format
+            "--input-customers",
+            "/vol/customers",  # Using space format
+            "--output-reports=/vol/reports",  # Using = format
+            "--output-archive",
+            "/vol/archive",  # Using space format
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("team").inputs().outputs().build()
+
+            assert hasattr(args, "inputs")
+            assert hasattr(args, "outputs")
+            assert args.inputs == {
+                "sales": "/vol/sales",
+                "customers": "/vol/customers",
+            }
+            assert args.outputs == {
+                "reports": "/vol/reports",
+                "archive": "/vol/archive",
+            }
+            assert args.config.team == "data-science"
+
+
+def test_dynamic_inputs_equals_format_with_equals_in_value():
+    """Test that --key=value format works when value contains equals signs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.json"
+
+        with open(config_path, "w") as f:
+            json.dump({}, f)
+
+        test_args = [
+            "--config",
+            str(config_path),
+            "--url=/api/endpoint?param=value&other=test",
+        ]
+
+        with patch("sys.argv", ["test_script.py"] + test_args):
+            args = StepArgsBuilder().config("dummy", optional=True).inputs().build()
+
+            assert hasattr(args, "inputs")
+            assert args.inputs == {"url": "/api/endpoint?param=value&other=test"}

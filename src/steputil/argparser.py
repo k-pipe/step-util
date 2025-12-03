@@ -335,13 +335,21 @@ class StepArgsBuilder:
                 if not arg.startswith("--"):
                     raise ValueError(f"Invalid argument format: {arg}")
 
-                if i + 1 >= len(unknown) or unknown[i + 1].startswith("--"):
-                    raise ValueError(f"Missing value for argument {arg}")
+                # Check if argument is in --key=value format
+                if "=" in arg:
+                    key_value = arg[2:]  # Remove "--" prefix
+                    key, value = key_value.split("=", 1)  # Split on first "=" only
+                    unknown_args[key] = value
+                    i += 1
+                else:
+                    # Argument is in --key value format
+                    if i + 1 >= len(unknown) or unknown[i + 1].startswith("--"):
+                        raise ValueError(f"Missing value for argument {arg}")
 
-                key = arg[2:]  # Remove "--" prefix
-                value = unknown[i + 1]
-                unknown_args[key] = value
-                i += 2
+                    key = arg[2:]  # Remove "--" prefix
+                    value = unknown[i + 1]
+                    unknown_args[key] = value
+                    i += 2
 
             # Handle different cases based on whether both inputs and outputs are enabled
             if self._collect_dynamic_inputs and self._collect_dynamic_outputs:
