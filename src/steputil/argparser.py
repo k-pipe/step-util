@@ -120,6 +120,10 @@ class StepArgs:
             dynamic_inputs: Optional dictionary of dynamic input names to paths.
             dynamic_outputs: Optional dictionary of dynamic output names to paths.
         """
+        # Store input and output names for reference
+        self.input_names = input_names
+        self.output_names = output_names
+
         # Create InputField objects for each input
         for name in input_names:
             setattr(self, name, InputField(args_dict.get(name)))
@@ -137,6 +141,48 @@ class StepArgs:
             self.inputs = dynamic_inputs
         if dynamic_outputs is not None:
             self.outputs = dynamic_outputs
+
+    def get_inputs(self):
+        """Get dictionary of input paths.
+
+        If dynamic inputs are enabled, returns the dynamic inputs dictionary.
+        Otherwise, returns a dictionary with paths from regular inputs.
+
+        Returns:
+            Dictionary mapping input names to paths (e.g., {'input': '/path/to/file', 'actions': '/path/to/actions'})
+        """
+        if hasattr(self, 'inputs') and self.inputs:
+            # Return dynamic inputs dictionary
+            return self.inputs
+        else:
+            # Return regular inputs as a dictionary
+            result = {}
+            for name in self.input_names:
+                field = getattr(self, name, None)
+                if field and field.path:
+                    result[name] = field.path
+            return result
+
+    def get_outputs(self):
+        """Get dictionary of output paths.
+
+        If dynamic outputs are enabled, returns the dynamic outputs dictionary.
+        Otherwise, returns a dictionary with paths from regular outputs.
+
+        Returns:
+            Dictionary mapping output names to paths (e.g., {'output': '/path/to/file', 'results': '/path/to/results'})
+        """
+        if hasattr(self, 'outputs') and self.outputs:
+            # Return dynamic outputs dictionary
+            return self.outputs
+        else:
+            # Return regular outputs as a dictionary
+            result = {}
+            for name in self.output_names:
+                field = getattr(self, name, None)
+                if field and field.path:
+                    result[name] = field.path
+            return result
 
 
 class _Sentinel:
