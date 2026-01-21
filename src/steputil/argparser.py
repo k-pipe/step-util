@@ -88,7 +88,7 @@ class OutputField:
 
         with open(output_path, "w", encoding="utf-8") as f:
             for obj in jsons:
-                f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+                f.write(json.dumps(obj, ensure_ascii=False, default=str) + "\n")
 
 
 class Config:
